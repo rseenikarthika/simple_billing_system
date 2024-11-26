@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Billing Page</title>
+    <script>
+        function addProductRow() {
+            const productFormsetDiv = document.getElementById('product-formset');
+            const newProductForm = document.createElement('div');
+            const totalForms = document.getElementById('id_form-TOTAL_FORMS');
+
+            const formIndex = totalForms.value; // Current number of forms in the formset
+            newProductForm.innerHTML = `
+                <div>
+                    <label for="id_form-${formIndex}-product_id">Product ID:</label>
+                    <input type="text" name="form-${formIndex}-product_id" id="id_form-${formIndex}-product_id">
+                </div>
+                <div>
+                    <label for="id_form-${formIndex}-quantity">Quantity:</label>
+                    <input type="number" name="form-${formIndex}-quantity" id="id_form-${formIndex}-quantity" min="1">
+                </div>
+            `;
+
+            productFormsetDiv.appendChild(newProductForm);
+            totalForms.value = parseInt(totalForms.value) + 1; // Increment the form count
+        }
+    </script>
+</head>
+<body>
+    <h1>Billing Page</h1>
+    <form method="post">
+        {% csrf_token %}
+
+        <h3>Products</h3>
+        <div id="product-formset">
+            {{ product_formset.management_form }}
+            {% for form in product_formset %}
+                <div>
+                    {{ form.as_p }}
+                </div>
+            {% endfor %}
+        </div>
+        <button type="button" onclick="addProductRow()">Add New Product</button>
+        
+        {{ billing_form.as_p }}
+
+        <button type="submit">Submit</button>
+    </form>
+</body>
+</html>
