@@ -5,6 +5,7 @@ from .models import Product, Transaction
 from django.db import transaction
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
+from django.http import JsonResponse
 
 def billing_page(request):
     if request.method == 'POST':
@@ -12,41 +13,47 @@ def billing_page(request):
         product_formset = ProductFormSet(request.POST)
 
         if billing_form.is_valid() and product_formset.is_valid():
+
             customer_email = billing_form.cleaned_data['customer_email']
             cash_paid = billing_form.cleaned_data['cash_paid']
             denominations = {key: billing_form.cleaned_data[key] for key in billing_form.fields if 'denomination' in key}
 
             total_price = 0
             transaction_date = timezone.now().replace(microsecond=0)  # Truncate microseconds
-            
+
             # Start a database transaction to ensure atomicity
             with transaction.atomic():
                 # Iterate over each product form and process it
                 for product_form in product_formset:
-                    product_id = product_form.cleaned_data.get('product_id')
-                    quantity = product_form.cleaned_data.get('quantity')
-                    
-                    # Retrieve the product details
-                    product = Product.objects.get(product_id=product_id)
-                    
-                    # Calculate the purchase price and tax
-                    purchase_price = product.unit_price * quantity
-                    tax = (purchase_price * product.tax_percentage) / 100
-                    total_price += purchase_price + tax  # Accumulate total price
+                    if product_form.cleaned_data and not product_form.cleaned_data.get('DELETE'):
+                        print("Product Form Data:", product_formset.cleaned_data)
+                        product_id = product_form.cleaned_data.get('product_id')
+                        quantity = product_form.cleaned_data.get('quantity')
 
-                    # Create the transaction record for this product
-                    Transaction.objects.create(
-                        customer_email=customer_email,
-                        product_id=product_id,
-                        quantity=quantity,
-                        purchase_price=purchase_price,
-                        tax_amount=tax,
-                        total_price=total_price,
-                        date=transaction_date,  # Store the transaction time
-                        **denominations,  # Add the denominations to the transaction
-                        cash_paid=cash_paid
-                    )
-            
+                        # Retrieve the product details
+                        product = Product.objects.get(product_id=product_id)
+
+                        # Calculate the purchase price and tax
+                        purchase_price = product.unit_price * quantity
+                        tax = (purchase_price * product.tax_percentage) / 100
+                        total_price += purchase_price + tax  # Accumulate total price
+
+                        # Create the transaction record for this product
+                        Transaction.objects.create(
+                            customer_email=customer_email,
+                            product_id=product_id,
+                            unit_price=product.unit_price,
+                            quantity=quantity,
+                            purchase_price=purchase_price,
+                            tax_amount=tax,
+                            total_price=total_price,
+                            date=transaction_date,  # Store the transaction time
+                            **denominations,  # Add the denominations to the transaction
+                            cash_paid=cash_paid
+                        )
+                    else:
+                        print("Invalid or empty product data, skipping...")
+
             # Redirect to the receipt page, passing the transaction date_time to fetch the details
             return redirect('receipt_page', date_time=transaction_date)
 
@@ -97,3 +104,18 @@ def receipt_page(request,date_time):
         'balance': balance,
         'denomination_breakdown': denomination_breakdown,
     })
+
+
+def validate_product(request):
+    product_id = request.GET.get('product_id')
+    try:
+        product = Product.objects.get(product_id=product_id)
+        product_data = {
+            "product_id": product.product_id,
+            "name": product.name,
+            "unit_price": product.unit_price,
+            "tax_percentage": product.tax_percentage,
+        }
+        return JsonResponse({'valid': True, "data": product_data})
+    except Product.DoesNotExist:
+        return JsonResponse({'valid': False,"data":None})

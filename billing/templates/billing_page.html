@@ -1,50 +1,516 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
+  <head>
+    <meta charset="UTF-8" />
     <title>Billing Page</title>
-    <script>
-        function addProductRow() {
-            const productFormsetDiv = document.getElementById('product-formset');
-            const newProductForm = document.createElement('div');
-            const totalForms = document.getElementById('id_form-TOTAL_FORMS');
+    <style>
+      /* Basic resets */
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
 
-            const formIndex = totalForms.value; // Current number of forms in the formset
-            newProductForm.innerHTML = `
-                <div>
-                    <label for="id_form-${formIndex}-product_id">Product ID:</label>
-                    <input type="text" name="form-${formIndex}-product_id" id="id_form-${formIndex}-product_id">
-                </div>
-                <div>
-                    <label for="id_form-${formIndex}-quantity">Quantity:</label>
-                    <input type="number" name="form-${formIndex}-quantity" id="id_form-${formIndex}-quantity" min="1">
-                </div>
-            `;
+      body {
+        font-family: Arial, sans-serif;
+        background-color: #f5f5f5;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+      }
 
-            productFormsetDiv.appendChild(newProductForm);
-            totalForms.value = parseInt(totalForms.value) + 1; // Increment the form count
-        }
-    </script>
-</head>
-<body>
+      h1 {
+        color: #333;
+        margin-bottom: 20px;
+        text-align: center;
+      }
+
+      form {
+        background: #fff;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        max-width: 500px;
+        width: 100%;
+      }
+
+      h3,
+      h2 {
+        color: #666;
+        margin-bottom: 10px;
+      }
+
+      .form-group {
+        margin-bottom: 8px;
+      }
+
+      label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: bold;
+        color: #555;
+      }
+
+      input[type="text"],
+      input[type="email"],
+      input[type="number"] {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        font-size: 1rem;
+        transition: border-color 0.3s;
+      }
+
+      input[type="text"]:focus,
+      input[type="number"]:focus {
+        border-color: #007bff;
+        outline: none;
+      }
+
+      .error-message {
+        color: red;
+        font-size: 0.875rem;
+        margin-top: 5px;
+      }
+
+      button[type="button"],
+      button[type="submit"] {
+        background-color: #007bff;
+        color: #fff;
+        padding: 10px 15px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 1rem;
+        transition: background-color 0.3s;
+        margin-top: 10px;
+      }
+
+      button[type="button"]:hover,
+      button[type="submit"]:hover {
+        background-color: #0056b3;
+      }
+
+      #product-formset div {
+        /* border-bottom: 1px solid #e0e0e0; */
+        /* padding-bottom: 10px;
+      margin-bottom: 10px; */
+      }
+
+      .form-group-root {
+        display: flex;
+        flex-direction: row;
+        gap: 16px;
+      }
+
+      #denominationRoot {
+        margin-top: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        align-items: start;
+      }
+
+      #denominationRoot > div {
+        width: 100%;
+      }
+
+      div:has(.denomination) {
+        display: flex;
+        flex-direction: row;
+        gap: 16px;
+        align-items: center;
+        width: 100%;
+      }
+
+      .denominationLabel {
+        width: 68px;
+      }
+
+      .submitBtnWrapper {
+        display: flex;
+        flex-direction: row;
+        justify-content: center;
+        padding-top: 16px;
+      }
+
+      .totalAmountHolder {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+      }
+    </style>
+  </head>
+  <body>
     <h1>Billing Page</h1>
-    <form method="post">
-        {% csrf_token %}
+    <form method="post" onsubmit="return validateSubmit(event)">
+      {% csrf_token %}
 
-        <h3>Products</h3>
-        <div id="product-formset">
-            {{ product_formset.management_form }}
-            {% for form in product_formset %}
-                <div>
-                    {{ form.as_p }}
-                </div>
-            {% endfor %}
+      <h3>Products</h3>
+      <div id="product-formset">
+        {{ product_formset.management_form }} {% for form in product_formset %}
+        {% endfor %}
+      </div>
+
+      <div class="totalAmountHolder">
+        <h3>Tax :</h3>
+        <h2 id="totalTaxAmount">0</h2>
+      </div>
+      <div class="totalAmountHolder">
+        <h3>Sub Total :</h3>
+        <h2 id="subTotalAmount">0</h2>
+      </div>
+      <div class="totalAmountHolder">
+        <h3>Total :</h3>
+        <h2 id="totalAmount">0</h2>
+      </div>
+
+      <button type="button" onclick="addProductRow()">Add New Product</button>
+
+      <div id="denominationRoot">
+        <h3>Customer Details</h3>
+
+        <div>
+          <label for="id_customer_email">Customer Email:</label>
+          <input
+            type="email"
+            name="customer_email"
+            maxlength="320"
+            required=""
+            id="id_customer_email"
+          />
         </div>
-        <button type="button" onclick="addProductRow()">Add New Product</button>
-        
-        {{ billing_form.as_p }}
 
+        <div>
+          <label for="id_cash_paid">Cash Paid by Customer:</label>
+          <input
+            type="number"
+            name="cash_paid"
+            step="any"
+            required=""
+            id="id_cash_paid"
+          />
+        </div>
+
+        <h3>Denominations</h3>
+
+        <div>
+          <label class="denominationLabel" for="id_denomination_500"
+            >500:</label
+          >
+          <input
+            type="number"
+            name="denomination_500"
+            value="0"
+            class="denomination"
+            required=""
+            id="id_denomination_500"
+          />
+        </div>
+
+        <div>
+          <label class="denominationLabel" for="id_denomination_50">50:</label>
+          <input
+            type="number"
+            name="denomination_50"
+            value="0"
+            class="denomination"
+            required=""
+            id="id_denomination_50"
+          />
+        </div>
+
+        <div>
+          <label class="denominationLabel" for="id_denomination_20">20:</label>
+          <input
+            type="number"
+            name="denomination_20"
+            value="0"
+            class="denomination"
+            required=""
+            id="id_denomination_20"
+          />
+        </div>
+
+        <div>
+          <label class="denominationLabel" for="id_denomination_10">10:</label>
+          <input
+            type="number"
+            name="denomination_10"
+            value="0"
+            class="denomination"
+            required=""
+            id="id_denomination_10"
+          />
+        </div>
+
+        <div>
+          <label class="denominationLabel" for="id_denomination_5">5:</label>
+          <input
+            type="number"
+            name="denomination_5"
+            value="0"
+            class="denomination"
+            required=""
+            id="id_denomination_5"
+          />
+        </div>
+
+        <div>
+          <label class="denominationLabel" for="id_denomination_2">2:</label>
+          <input
+            type="number"
+            name="denomination_2"
+            value="0"
+            class="denomination"
+            required=""
+            id="id_denomination_2"
+          />
+        </div>
+
+        <div>
+          <label class="denominationLabel" for="id_denomination_1">1:</label>
+          <input
+            type="number"
+            name="denomination_1"
+            value="0"
+            class="denomination"
+            required=""
+            id="id_denomination_1"
+          />
+        </div>
+      </div>
+
+      <div class="submitBtnWrapper">
         <button type="submit">Submit</button>
+      </div>
     </form>
-</body>
+
+    <script>
+      var productsWithQuntity = {};
+      var productError = {};
+
+      (function () {
+        addProductRow();
+      })();
+
+      let debounceTimer;
+
+      function validateProductInput(input) {
+        const productId = input.value.trim();
+        const errorDiv = document.getElementById(`${input.id}-error`);
+
+        if (!productId) {
+          errorDiv.innerText = "";
+          return;
+        }
+
+        let id = input.id.split("-")[1];
+
+        // API call to validate the product ID
+        fetch(`/validate-product/?product_id=${encodeURIComponent(productId)}`)
+          .then((response) => response.json())
+          .then((data) => {
+            if (!data.valid) {
+              errorDiv.innerText = "Invalid product ID. Please try again.";
+              productError[id] = true;
+            } else {
+              productError[id] = false;
+              errorDiv.innerText = "";
+
+              if (productsWithQuntity.hasOwnProperty(id)) {
+                productsWithQuntity[id]["product"] = data.data;
+              } else {
+                productsWithQuntity[id] = { product: data.data, qty: 0 };
+              }
+              updateTaxAmount();
+              updateTotalAmount();
+            }
+          })
+          .catch((error) => {
+            errorDiv.innerText = "Error validating product. Please try again.";
+          });
+      }
+
+      function updateQuantity(input) {
+        let id = input.id.split("-")[1];
+        if (productsWithQuntity.hasOwnProperty(id)) {
+          productsWithQuntity[id]["qty"] = input.value;
+        } else {
+          productsWithQuntity[id] = { qty: input.value };
+        }
+        updateTaxAmount();
+        updateTotalAmount();
+      }
+
+      function updateTotalAmount() {
+        document.getElementById("subTotalAmount").innerHTML = getTotalAmount();
+
+        document.getElementById("totalAmount").innerHTML =
+          getTotalAmount() + getTotalTaxAmount();
+      }
+
+      function updateTaxAmount() {
+        document.getElementById("totalTaxAmount").innerHTML =
+          getTotalTaxAmount();
+      }
+
+      function getTotalAmount() {
+        let totalAmount = 0;
+        Object.keys(productsWithQuntity).forEach((key) => {
+          let unitPrice = productsWithQuntity[key]["product"]["unit_price"];
+          let qty = productsWithQuntity[key]["qty"];
+
+          totalAmount += unitPrice * qty;
+        });
+
+        return totalAmount;
+      }
+
+      function getTotalTaxAmount() {
+        let totalTaxAmount = 0;
+        Object.keys(productsWithQuntity).forEach((key) => {
+          let unitPrice = productsWithQuntity[key]["product"]["unit_price"];
+          let tax_percentage =
+            productsWithQuntity[key]["product"]["tax_percentage"];
+          let qty = productsWithQuntity[key]["qty"];
+
+          totalTaxAmount += ((unitPrice * qty) / 100) * tax_percentage;
+        });
+
+        return totalTaxAmount;
+      }
+
+      function validateDenomination(event) {
+        let denomination_500 = document.getElementById(
+          "id_denomination_500"
+        ).value;
+        let denomination_50 =
+          document.getElementById("id_denomination_50").value;
+        let denomination_20 =
+          document.getElementById("id_denomination_20").value;
+        let denomination_10 =
+          document.getElementById("id_denomination_10").value;
+        let denomination_5 = document.getElementById("id_denomination_5").value;
+        let denomination_2 = document.getElementById("id_denomination_2").value;
+        let denomination_1 = document.getElementById("id_denomination_1").value;
+
+        if (isNaN(denomination_500)) {
+          denomination_500 = 0;
+        }
+        if (isNaN(denomination_50)) {
+          denomination_50 = 0;
+        }
+        if (isNaN(denomination_20)) {
+          denomination_20 = 0;
+        }
+        if (isNaN(denomination_10)) {
+          denomination_10 = 0;
+        }
+        if (isNaN(denomination_5)) {
+          denomination_5 = 0;
+        }
+        if (isNaN(denomination_2)) {
+          denomination_2 = 0;
+        }
+        if (isNaN(denomination_1)) {
+          denomination_1 = 0;
+        }
+
+        let total =
+          parseInt(denomination_500) * 500 +
+          parseInt(denomination_50) * 50 +
+          parseInt(denomination_20) * 20 +
+          parseInt(denomination_10) * 10 +
+          parseInt(denomination_2) * 2 +
+          parseInt(denomination_1) * 1;
+        let cashByCustomer = parseInt(
+          document.getElementById("id_cash_paid").value
+        );
+
+        if (total < cashByCustomer) {
+          alert("Denomination lesser than cash paid by customer");
+          event.preventDefault();
+          return false;
+        }
+
+        return true;
+      }
+
+      function isAllProductsAreValid(event) {
+        let status = true;
+
+        Object.keys(productError).forEach((key) => {
+          if (productError[key] == true) {
+            status = false;
+          }
+        });
+
+        if (!status) {
+          alert("Invalid products added.");
+          event.preventDefault();
+          return false;
+        }
+
+        return true;
+      }
+
+      function validateSubmit(event) {
+        try {
+          let totalAmount = getTotalAmount() + getTotalTaxAmount();
+          let cashByCustomer = parseInt(
+            document.getElementById("id_cash_paid").value
+          );
+
+          let status = cashByCustomer >= totalAmount;
+
+          if (!status) {
+            alert("Cash by customer is less than total amount");
+            event.preventDefault();
+            return false;
+          } else {
+            status = validateDenomination(event);
+          }
+
+          if (status) {
+            status = isAllProductsAreValid(event);
+          }
+
+          return status;
+        } catch (e) {
+          alert("Invalid products added.");
+          event.preventDefault();
+          return false;
+        }
+      }
+
+      function addProductRow() {
+        const productFormsetDiv = document.getElementById("product-formset");
+        const newProductForm = document.createElement("div");
+        newProductForm.className = "form-group-root";
+        const totalForms = document.getElementById("id_form-TOTAL_FORMS");
+
+        const formIndex = totalForms.value; // Current number of forms in the formset
+        newProductForm.innerHTML = `
+        <div class="form-group">
+          <label for="id_form-${formIndex}-product_id">Product ID:</label>
+          <input type="text" name="form-${formIndex}-product_id" id="id_form-${formIndex}-product_id" onblur="validateProductInput(this)">
+          <div id="id_form-${formIndex}-product_id-error" class="error-message"></div>
+        </div>
+        <div class="form-group">
+          <label for="id_form-${formIndex}-quantity">Quantity:</label>
+          <input type="number" name="form-${formIndex}-quantity" id="id_form-${formIndex}-quantity" min="1" onblur="updateQuantity(this)">
+        </div>
+      `;
+
+        productFormsetDiv.appendChild(newProductForm);
+        totalForms.value = parseInt(totalForms.value) + 1; // Increment the form count
+      }
+    </script>
+  </body>
 </html>

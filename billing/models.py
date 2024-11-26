@@ -18,6 +18,7 @@ class Transaction(models.Model):
     quantity = models.IntegerField()
     purchase_price = models.FloatField()
     tax_amount = models.FloatField()
+    unit_price = models.FloatField()
     total_price = models.FloatField()
     denomination_500 = models.IntegerField(default=0)
     denomination_50 = models.IntegerField(default=0)

@@ -22,7 +22,7 @@
             {% for transaction in transactions %}
                 <tr>
                     <td>{{ transaction.product_id }}</td>
-                    <td>{{ transaction.product.unit_price }}</td>
+                    <td>{{ transaction.unit_price }}</td>
                     <td>{{ transaction.quantity }}</td>
                     <td>{{ transaction.purchase_price }}</td>
                     <td>{{ transaction.tax_amount }}</td>
